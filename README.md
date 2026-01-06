@@ -1,57 +1,70 @@
-# React + TypeScript + Vite
+# Outer - Personal Wardrobe & Outfit Assistant
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+<div align="center">
+  <h3>你的智能衣橱管理专家</h3>
+  <p>拍照录入 · 身材档案 · 智能搭配</p>
+  <a href="https://traewpvzs86n.vercel.app"><strong>🚀 在线体验 (Live Demo)</strong></a>
+</div>
 
-Currently, two official plugins are available:
+<br />
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 📖 项目简介 (Introduction)
 
-## Expanding the ESLint configuration
+**Outer** 是一款专注于个人衣物管理与搭配推荐的应用程序。旨在通过最简单的交互（拍照+标签），解决“衣柜里衣服很多，但不知道穿什么”的日常难题。
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+本项目目前处于 **MVP (Minimum Viable Product)** 阶段，核心验证“快速录入”与“随机灵感”的用户价值。
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+## ✨ 核心功能 (Key Features)
+
+### 1. 极简衣橱 (Wardrobe Entry)
+- **拍照即存**：直接调用相机或上传图片。
+- **快速标记**：只需选择分类（上装/下装/鞋子）、季节、颜色即可入库。
+- **云端同步**：基于 Supabase Storage，数据永不丢失。
+
+### 2. 身材档案 (Body Profile)
+- **数据记录**：记录身高、体重等基础信息。
+- **体型匹配**：提供 5 种标准体型（梨形、沙漏型等）供用户快速对号入座，为未来精准推荐打底。
+
+### 3. 灵感搭配 (Smart Recommendations)
+- **一键生成**：点击按钮，系统自动从你的衣柜中抽取“上装 + 下装 + 鞋子”的组合。
+- **场景标签**：支持按不同场合（通勤、约会、休闲）生成并保存搭配。
+- **打破惯性**：通过随机算法组合，发现你未曾尝试过的穿搭可能性。
+
+## 🛠 技术方案 (Tech Stack)
+
+本项目采用现代化的 **React + Supabase** 架构，实现了快速开发与 Serverless 部署。
+
+- **前端**: React 18, Vite, TailwindCSS (移动端优先设计)
+- **后端 (BaaS)**: Supabase (Auth, Database, Storage)
+- **部署**: Vercel
+
+## 📸 预览 (Screenshots)
+
+*(此处可后续补充 App 截图)*
+
+## 🚀 快速开始 (Getting Started)
+
+### 本地运行
+
+1. 克隆项目
+```bash
+git clone https://github.com/mintgao/Project_26_Outer.git
+cd Project_26_Outer
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config({
-  extends: [
-    // other configs...
-    // Enable lint rules for React
-    reactX.configs['recommended-typescript'],
-    // Enable lint rules for React DOM
-    reactDom.configs.recommended,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+2. 安装依赖
+```bash
+npm install
 ```
+
+3. 配置环境变量
+复制 `.env.example` 为 `.env` 并填入你的 Supabase Key。
+
+4. 启动
+```bash
+npm run dev
+```
+
+## 📄 License
+
+MIT
