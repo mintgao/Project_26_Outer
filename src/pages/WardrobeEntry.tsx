@@ -1,288 +1,41 @@
-import { useState, useRef } from 'react';
-import { supabase } from '../lib/supabase';
-import { useAuth } from '../context/AuthContext';
-import { Camera, Upload, X, Sparkles } from 'lucide-react';
+import { useState } from 'react';
+import { Plus } from 'lucide-react';
 import WardrobeGallery from '../components/WardrobeGallery';
-import BrandSelector from '../components/BrandSelector';
-import { analyzeImage } from '../lib/qwen';
+import AddItemModal from '../components/AddItemModal';
 
 export default function WardrobeEntry() {
-  const { user } = useAuth();
-  const [file, setFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  // Track if current file is already uploaded to Supabase (for AI or Save)
-  const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
-  
-  const [category, setCategory] = useState('top');
-  const [color, setColor] = useState('black');
-  const [season, setSeason] = useState('all');
-  const [brand, setBrand] = useState('');
-  
-  const [uploading, setUploading] = useState(false);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [message, setMessage] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   // Force gallery refresh key
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const selectedFile = e.target.files[0];
-      setFile(selectedFile);
-      setPreviewUrl(URL.createObjectURL(selectedFile));
-      // Reset upload state for new file
-      setUploadedUrl(null);
-      setMessage('');
-    }
-  };
-
-  const clearFile = () => {
-    setFile(null);
-    setPreviewUrl(null);
-    setUploadedUrl(null);
-    setBrand('');
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const uploadImage = async (fileToUpload: File): Promise<string> => {
-    if (!user) throw new Error('User not logged in');
-    
-    const fileExt = fileToUpload.name.split('.').pop();
-    const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-    const { error: uploadError } = await supabase.storage
-      .from('clothing-images')
-      .upload(fileName, fileToUpload);
-
-    if (uploadError) throw uploadError;
-
-    const { data: { publicUrl } } = supabase.storage
-      .from('clothing-images')
-      .getPublicUrl(fileName);
-      
-    return publicUrl;
-  };
-
-  const handleAnalyze = async () => {
-    if (!file || !user) return;
-    
-    setAnalyzing(true);
-    setMessage('');
-
-    try {
-      let imageUrl = uploadedUrl;
-
-      // 1. Upload if not already uploaded
-      if (!imageUrl) {
-        imageUrl = await uploadImage(file);
-        setUploadedUrl(imageUrl);
-      }
-
-      // 2. Call AI
-      const result = await analyzeImage(imageUrl);
-      
-      // 3. Auto-fill
-      if (result.category) setCategory(result.category);
-      if (result.color) setColor(result.color);
-      if (result.season) setSeason(result.season);
-      
-      setMessage('✨ AI Analysis complete!');
-    } catch (error: any) {
-      console.error('Analysis failed:', error);
-      setMessage(`AI Analysis failed: ${error.message}`);
-    } finally {
-      setAnalyzing(false);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!file || !user) return;
-
-    setUploading(true);
-    setMessage('');
-
-    try {
-      let imageUrl = uploadedUrl;
-
-      // 1. Upload if not already uploaded
-      if (!imageUrl) {
-        imageUrl = await uploadImage(file);
-        setUploadedUrl(imageUrl);
-      }
-
-      // 2. Insert Record
-      const { error: insertError } = await supabase
-        .from('clothing')
-        .insert({
-          user_id: user.id,
-          image_url: imageUrl,
-          category,
-          color,
-          season,
-          brand, // Add brand
-        });
-
-      if (insertError) throw insertError;
-
-      setMessage('Item added successfully!');
-      clearFile();
-      // Trigger gallery refresh
-      setRefreshKey(prev => prev + 1);
-    } catch (error: any) {
-      console.error('Error uploading:', error);
-      setMessage(`Error: ${error.message}`);
-    } finally {
-      setUploading(false);
-    }
+  const handleSuccess = () => {
+    setRefreshKey(prev => prev + 1);
   };
 
   return (
-    <div className="max-w-md mx-auto space-y-8 pb-20">
-      <div className="space-y-6">
-        <h2 className="text-xl font-bold text-gray-900">Add New Item</h2>
-
-        <div className="space-y-6">
-          {/* Image Upload Area */}
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">Item Photo</label>
-            
-            {!previewUrl ? (
-              <div 
-                onClick={() => fileInputRef.current?.click()}
-                className="mt-1 flex justify-center rounded-md border-2 border-dashed border-gray-300 px-6 pt-5 pb-6 cursor-pointer hover:border-indigo-500 transition-colors"
-              >
-                <div className="space-y-1 text-center">
-                  <Camera className="mx-auto h-12 w-12 text-gray-400" />
-                  <div className="flex text-sm text-gray-600">
-                    <span className="relative rounded-md bg-white font-medium text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-500 focus-within:ring-offset-2 hover:text-indigo-500">
-                      Take a photo or upload
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-500">PNG, JPG up to 10MB</p>
-                </div>
-              </div>
-            ) : (
-              <div className="relative mt-2">
-                <img 
-                  src={previewUrl} 
-                  alt="Preview" 
-                  className="w-full h-64 object-cover rounded-lg shadow-md" 
-                />
-                
-                {/* AI Button Overlay */}
-                <div className="absolute bottom-4 right-4 flex gap-2">
-                   <button
-                    type="button"
-                    onClick={handleAnalyze}
-                    disabled={analyzing}
-                    className="flex items-center px-3 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-full shadow-lg hover:bg-indigo-700 disabled:opacity-75 transition-all"
-                  >
-                    <Sparkles className={`w-4 h-4 mr-1.5 ${analyzing ? 'animate-spin' : ''}`} />
-                    {analyzing ? 'Analyzing...' : 'AI Identify'}
-                  </button>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={clearFile}
-                  className="absolute top-2 right-2 p-1 bg-white rounded-full shadow-md text-gray-600 hover:text-red-500"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-            )}
-            
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Tags */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Category</label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm bg-white border"
-                >
-                  <option value="top">Top</option>
-                  <option value="bottom">Bottom</option>
-                  <option value="shoes">Shoes</option>
-                  <option value="outerwear">Outerwear</option>
-                  <option value="accessory">Accessory</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Season</label>
-                <select
-                  value={season}
-                  onChange={(e) => setSeason(e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm bg-white border"
-                >
-                  <option value="all">All Year</option>
-                  <option value="spring">Spring</option>
-                  <option value="summer">Summer</option>
-                  <option value="autumn">Autumn</option>
-                  <option value="winter">Winter</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Color</label>
-                <select
-                  value={color}
-                  onChange={(e) => setColor(e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm bg-white border"
-                >
-                  <option value="black">Black</option>
-                  <option value="white">White</option>
-                  <option value="grey">Grey</option>
-                  <option value="beige">Beige</option>
-                  <option value="navy">Navy</option>
-                  <option value="blue">Blue</option>
-                  <option value="red">Red</option>
-                  <option value="green">Green</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-              
-              {/* Brand Selector */}
-              <div>
-                <BrandSelector value={brand} onChange={setBrand} />
-              </div>
-            </div>
-
-            {message && (
-              <div className={`text-sm ${message.includes('success') || message.includes('complete') ? 'text-green-600' : 'text-red-600'}`}>
-                {message}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={!file || uploading}
-              className="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {uploading ? 'Uploading...' : 'Save to Wardrobe'}
-            </button>
-          </form>
-        </div>
+    <div className="relative min-h-full pb-20">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-gray-900">My Wardrobe</h2>
       </div>
-      
-      <hr className="border-gray-200" />
-      
-      {/* Gallery Section */}
+
+      {/* Gallery Section (Default View) */}
       <WardrobeGallery key={refreshKey} />
+
+      {/* Floating Action Button */}
+      <button
+        onClick={() => setIsModalOpen(true)}
+        className="fixed bottom-24 right-6 w-14 h-14 bg-indigo-600 rounded-full shadow-lg flex items-center justify-center text-white hover:bg-indigo-700 active:scale-95 transition-all z-40"
+      >
+        <Plus size={28} />
+      </button>
+
+      {/* Add Item Modal */}
+      <AddItemModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        onSuccess={handleSuccess}
+      />
     </div>
   );
 }
