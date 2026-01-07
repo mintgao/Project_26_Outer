@@ -28,17 +28,16 @@ export async function analyzeImage(imageUrl: string): Promise<AnalysisResult> {
         await delay(RETRY_DELAY * attempt); // Exponential backoff
       }
 
-      // Use proxy path in development to avoid CORS
-      const apiUrl = import.meta.env.DEV 
-        ? '/api/dashscope/api/v1/services/aigc/multimodal-generation/generation'
-        : 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation';
+      // Always use the relative path /api/dashscope
+      // In Dev: Vite proxy handles it
+      // In Prod: Vercel Serverless Function handles it
+      const apiUrl = '/api/dashscope';
 
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${API_KEY}`,
           'Content-Type': 'application/json',
-          // 'X-DashScope-WorkSpace': 'modal', // Removed as it causes AccessDenied for some keys
+          // Authorization header is now handled by the backend proxy
         },
         body: JSON.stringify({
           model: "qwen-vl-plus",
