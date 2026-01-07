@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { Camera, Upload, X, Sparkles, Loader2, Save } from 'lucide-react';
+import { Camera, Upload, X, Sparkles, Loader2, Save, Image as ImageIcon } from 'lucide-react';
 import BrandSelector from './BrandSelector';
 import { analyzeImage } from '../lib/qwen';
 
@@ -29,7 +29,8 @@ export default function AddItemModal({ isOpen, onClose, onSuccess }: AddItemModa
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isOpen) {
@@ -150,21 +151,39 @@ export default function AddItemModal({ isOpen, onClose, onSuccess }: AddItemModa
 
         <div className="p-6 flex-1">
           {step === 'upload' && (
-             <div 
-               onClick={() => fileInputRef.current?.click()}
-               className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-indigo-500 hover:bg-indigo-50 transition-all"
-             >
-               <Camera className="w-16 h-16 text-indigo-400 mb-4" />
-               <p className="text-lg font-medium text-gray-700">Take Photo or Upload</p>
-               <p className="text-sm text-gray-500 mt-2">Tap to select image</p>
-               <input
-                 ref={fileInputRef}
-                 type="file"
-                 accept="image/*"
-                 capture="environment"
-                 className="hidden"
-                 onChange={handleFileChange}
-               />
+             <div className="grid grid-cols-2 gap-4 h-64">
+               {/* Camera Option */}
+               <div 
+                 onClick={() => cameraInputRef.current?.click()}
+                 className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-indigo-500 hover:bg-indigo-50 transition-all active:scale-95"
+               >
+                 <Camera className="w-12 h-12 text-indigo-500 mb-3" />
+                 <p className="font-medium text-gray-700">Camera</p>
+                 <input
+                   ref={cameraInputRef}
+                   type="file"
+                   accept="image/*"
+                   capture="environment"
+                   className="hidden"
+                   onChange={handleFileChange}
+                 />
+               </div>
+
+               {/* Gallery Option */}
+               <div 
+                 onClick={() => galleryInputRef.current?.click()}
+                 className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-indigo-500 hover:bg-indigo-50 transition-all active:scale-95"
+               >
+                 <ImageIcon className="w-12 h-12 text-purple-500 mb-3" />
+                 <p className="font-medium text-gray-700">Gallery</p>
+                 <input
+                   ref={galleryInputRef}
+                   type="file"
+                   accept="image/*"
+                   className="hidden"
+                   onChange={handleFileChange}
+                 />
+               </div>
              </div>
           )}
 
