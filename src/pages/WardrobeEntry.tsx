@@ -1,17 +1,25 @@
 import { useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { Camera, Upload, X } from 'lucide-react';
+import { Camera, Upload, X, Sparkles } from 'lucide-react';
 import WardrobeGallery from '../components/WardrobeGallery';
+import BrandSelector from '../components/BrandSelector';
+import { analyzeImage } from '../lib/qwen';
 
 export default function WardrobeEntry() {
   const { user } = useAuth();
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  // Track if current file is already uploaded to Supabase (for AI or Save)
+  const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
+  
   const [category, setCategory] = useState('top');
   const [color, setColor] = useState('black');
   const [season, setSeason] = useState('all');
+  const [brand, setBrand] = useState('');
+  
   const [uploading, setUploading] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
   const [message, setMessage] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Force gallery refresh key
@@ -22,13 +30,68 @@ export default function WardrobeEntry() {
       const selectedFile = e.target.files[0];
       setFile(selectedFile);
       setPreviewUrl(URL.createObjectURL(selectedFile));
+      // Reset upload state for new file
+      setUploadedUrl(null);
+      setMessage('');
     }
   };
 
   const clearFile = () => {
     setFile(null);
     setPreviewUrl(null);
+    setUploadedUrl(null);
+    setBrand('');
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const uploadImage = async (fileToUpload: File): Promise<string> => {
+    if (!user) throw new Error('User not logged in');
+    
+    const fileExt = fileToUpload.name.split('.').pop();
+    const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+    const { error: uploadError } = await supabase.storage
+      .from('clothing-images')
+      .upload(fileName, fileToUpload);
+
+    if (uploadError) throw uploadError;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('clothing-images')
+      .getPublicUrl(fileName);
+      
+    return publicUrl;
+  };
+
+  const handleAnalyze = async () => {
+    if (!file || !user) return;
+    
+    setAnalyzing(true);
+    setMessage('');
+
+    try {
+      let imageUrl = uploadedUrl;
+
+      // 1. Upload if not already uploaded
+      if (!imageUrl) {
+        imageUrl = await uploadImage(file);
+        setUploadedUrl(imageUrl);
+      }
+
+      // 2. Call AI
+      const result = await analyzeImage(imageUrl);
+      
+      // 3. Auto-fill
+      if (result.category) setCategory(result.category);
+      if (result.color) setColor(result.color);
+      if (result.season) setSeason(result.season);
+      
+      setMessage('✨ AI Analysis complete!');
+    } catch (error: any) {
+      console.error('Analysis failed:', error);
+      setMessage(`AI Analysis failed: ${error.message}`);
+    } finally {
+      setAnalyzing(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -39,29 +102,24 @@ export default function WardrobeEntry() {
     setMessage('');
 
     try {
-      // 1. Upload Image
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage
-        .from('clothing-images')
-        .upload(fileName, file);
+      let imageUrl = uploadedUrl;
 
-      if (uploadError) throw uploadError;
+      // 1. Upload if not already uploaded
+      if (!imageUrl) {
+        imageUrl = await uploadImage(file);
+        setUploadedUrl(imageUrl);
+      }
 
-      // 2. Get Public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('clothing-images')
-        .getPublicUrl(fileName);
-
-      // 3. Insert Record
+      // 2. Insert Record
       const { error: insertError } = await supabase
         .from('clothing')
         .insert({
           user_id: user.id,
-          image_url: publicUrl,
+          image_url: imageUrl,
           category,
           color,
           season,
+          brand, // Add brand
         });
 
       if (insertError) throw insertError;
@@ -83,7 +141,7 @@ export default function WardrobeEntry() {
       <div className="space-y-6">
         <h2 className="text-xl font-bold text-gray-900">Add New Item</h2>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="space-y-6">
           {/* Image Upload Area */}
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700">Item Photo</label>
@@ -110,6 +168,20 @@ export default function WardrobeEntry() {
                   alt="Preview" 
                   className="w-full h-64 object-cover rounded-lg shadow-md" 
                 />
+                
+                {/* AI Button Overlay */}
+                <div className="absolute bottom-4 right-4 flex gap-2">
+                   <button
+                    type="button"
+                    onClick={handleAnalyze}
+                    disabled={analyzing}
+                    className="flex items-center px-3 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-full shadow-lg hover:bg-indigo-700 disabled:opacity-75 transition-all"
+                  >
+                    <Sparkles className={`w-4 h-4 mr-1.5 ${analyzing ? 'animate-spin' : ''}`} />
+                    {analyzing ? 'Analyzing...' : 'AI Identify'}
+                  </button>
+                </div>
+
                 <button
                   type="button"
                   onClick={clearFile}
@@ -130,72 +202,81 @@ export default function WardrobeEntry() {
             />
           </div>
 
-          {/* Tags */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Category</label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm bg-white border"
-              >
-                <option value="top">Top</option>
-                <option value="bottom">Bottom</option>
-                <option value="shoes">Shoes</option>
-                <option value="outerwear">Outerwear</option>
-                <option value="accessory">Accessory</option>
-              </select>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Tags */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Category</label>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm bg-white border"
+                >
+                  <option value="top">Top</option>
+                  <option value="bottom">Bottom</option>
+                  <option value="shoes">Shoes</option>
+                  <option value="outerwear">Outerwear</option>
+                  <option value="accessory">Accessory</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Season</label>
+                <select
+                  value={season}
+                  onChange={(e) => setSeason(e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm bg-white border"
+                >
+                  <option value="all">All Year</option>
+                  <option value="spring">Spring</option>
+                  <option value="summer">Summer</option>
+                  <option value="autumn">Autumn</option>
+                  <option value="winter">Winter</option>
+                </select>
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Season</label>
-              <select
-                value={season}
-                onChange={(e) => setSeason(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm bg-white border"
-              >
-                <option value="all">All Year</option>
-                <option value="spring">Spring</option>
-                <option value="summer">Summer</option>
-                <option value="autumn">Autumn</option>
-                <option value="winter">Winter</option>
-              </select>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Color</label>
+                <select
+                  value={color}
+                  onChange={(e) => setColor(e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm bg-white border"
+                >
+                  <option value="black">Black</option>
+                  <option value="white">White</option>
+                  <option value="grey">Grey</option>
+                  <option value="beige">Beige</option>
+                  <option value="navy">Navy</option>
+                  <option value="blue">Blue</option>
+                  <option value="red">Red</option>
+                  <option value="green">Green</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              
+              {/* Brand Selector */}
+              <div>
+                <BrandSelector value={brand} onChange={setBrand} />
+              </div>
             </div>
-          </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Color</label>
-            <select
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm bg-white border"
+            {message && (
+              <div className={`text-sm ${message.includes('success') || message.includes('complete') ? 'text-green-600' : 'text-red-600'}`}>
+                {message}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={!file || uploading}
+              className="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <option value="black">Black</option>
-              <option value="white">White</option>
-              <option value="grey">Grey</option>
-              <option value="beige">Beige</option>
-              <option value="navy">Navy</option>
-              <option value="blue">Blue</option>
-              <option value="red">Red</option>
-              <option value="green">Green</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-
-          {message && (
-            <div className={`text-sm ${message.includes('success') ? 'text-green-600' : 'text-red-600'}`}>
-              {message}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={!file || uploading}
-            className="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {uploading ? 'Uploading...' : 'Save to Wardrobe'}
-          </button>
-        </form>
+              {uploading ? 'Uploading...' : 'Save to Wardrobe'}
+            </button>
+          </form>
+        </div>
       </div>
       
       <hr className="border-gray-200" />
