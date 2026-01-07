@@ -28,12 +28,17 @@ export async function analyzeImage(imageUrl: string): Promise<AnalysisResult> {
         await delay(RETRY_DELAY * attempt); // Exponential backoff
       }
 
-      const response = await fetch('https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation', {
+      // Use proxy path in development to avoid CORS
+      const apiUrl = import.meta.env.DEV 
+        ? '/api/dashscope/api/v1/services/aigc/multimodal-generation/generation'
+        : 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation';
+
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${API_KEY}`,
           'Content-Type': 'application/json',
-          'X-DashScope-WorkSpace': 'modal',
+          // 'X-DashScope-WorkSpace': 'modal', // Removed as it causes AccessDenied for some keys
         },
         body: JSON.stringify({
           model: "qwen-vl-plus",
@@ -72,11 +77,17 @@ export async function analyzeImage(imageUrl: string): Promise<AnalysisResult> {
 
       // Clean up markdown code blocks if present
       const cleanJson = content.replace(/```json\n?|\n?```/g, '').trim();
+      console.log('AI Raw Response:', content); // Debug log
       
       try {
         return JSON.parse(cleanJson);
       } catch (e) {
         console.error('JSON Parse Error:', cleanJson);
+        // Try a more aggressive cleanup if simple replace failed
+        const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+           return JSON.parse(jsonMatch[0]);
+        }
         throw new Error('Failed to parse AI response');
       }
 
