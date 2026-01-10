@@ -24,6 +24,7 @@ export default function Auth() {
             data: {
               name: email.split('@')[0], // Default name
             },
+            emailRedirectTo: window.location.origin,
           },
         });
         if (error) throw error;
