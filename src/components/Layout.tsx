@@ -1,6 +1,7 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { Shirt, User, Sparkles, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import DevTools from './DevTools';
 
 export default function Layout() {
   const { pathname } = useLocation();
@@ -24,6 +25,8 @@ export default function Layout() {
       <main className="flex-1 overflow-y-auto p-4 pb-20">
         <Outlet />
       </main>
+
+      <DevTools />
 
       <nav className="fixed bottom-0 left-0 right-0 border-t bg-white pb-4">
         <div className="flex justify-around p-2">
