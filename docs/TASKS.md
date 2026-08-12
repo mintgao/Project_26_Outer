@@ -12,6 +12,7 @@
 目标：消除高危安全项、让工程基线可信、CI 能跑。**这是权威清单，逐条完成。**
 
 - [~] **P0-01** 轮换 DashScope Key 与 Supabase 凭据；`.env` 移出 git 跟踪并补 `.env.example`
+  - 进展（2026-08-12）：仓库侧已彻底止血 —— `git filter-repo` 重写全历史，`.env` 全部历史版本删除、明文密钥替换为 `***REMOVED***`，已 force push，全历史敏感串扫描命中 0。**控制台密钥轮换尚未执行，本任务仍未完成。**
   - 验收：DashScope Key、Supabase anon key / service role key / 数据库密码全部在控制台重置为新值；旧值全部失效；`git ls-files | grep .env` 只剩 `.env.example`；`.env.example` 只含键名与注释、无任何真实值；本机 `.env` 与 Vercel 环境变量均已更新为新值；`npm run dev` 与线上部署功能正常。
 - [ ] **P0-02** 收紧 RLS：`profiles` 的 select 策略从 `using (true)` 改为 `auth.uid() = id`
   - 验收：新 migration 文件包含 drop 旧策略 + create 新策略；用 A 账号登录查询 `profiles` 只能拿到自己那一行（B 账号数据返回 0 行）；策略变更已写入 `supabase/migrations/`，未只在控制台手改。
@@ -19,7 +20,7 @@
   - 验收：桶 `public = false`；直接访问原始对象 URL 返回 403；前端通过 `createSignedUrl` 正常显示图片；上传路径强制为 `{auth.uid()}/...`，尝试写入他人 uid 前缀被策略拒绝；策略以 migration 提交。
 - [ ] **P0-04** 给 AI 代理（`api/dashscope.js`）加 JWT 校验 + 单用户日配额 + 结构化日志
   - 验收：无 `Authorization` 头或 JWT 无效时返回 401；伪造/过期 token 被拒；同一用户单日超过配额上限返回 429；每次调用输出结构化日志（含 user_id、耗时、状态码、是否命中配额，**不得记录密钥或图片原文**）；密钥从 `DASHSCOPE_API_KEY` 读取（非 `VITE_` 前缀）。
-- [ ] **P0-05** 重建 migration 基线（现有 `supabase/migrations/20240107_add_brands_and_ai.sql` 首行被误粘贴的 `VITE_DASHSCOPE_API_KEY=sk-...` 污染，无法执行；因不继承线上数据，直接从干净 schema 重建）
+- [ ] **P0-05** 重建 migration 基线（现有 `supabase/migrations/20240107_add_brands_and_ai.sql` 首行被误粘贴的 `VITE_DASHSCOPE_API_KEY=sk-...` 污染，无法执行；污染首行已于 2026-08-12 随 git 历史清理从工作区与全历史移除，但基线重建仍未做；因不继承线上数据，直接从干净 schema 重建）
   - 验收：在全新空 Supabase 项目上按顺序执行 `supabase/migrations/` 下全部文件**零报错**；污染文件已删除或重写，仓库内不存在被环境变量污染的 SQL；migration 内含所有表、索引与 RLS 策略；`supabase db reset` 可复现完整 schema。
 - [ ] **P0-06** 搭目录骨架（UI / 数据层 / 领域层三分），把 `src/lib/colorMatching.ts` 迁入领域层
   - 验收：存在 `src/data/` 与 `src/domain/`；`colorMatching.ts` 位于 `src/domain/`，且不 import React、不 import supabase；全仓库 `grep -rn "supabase.from(" src/pages src/components` 结果为空（数据访问全部收敛到 `src/data`）；`npm run build` 通过。
