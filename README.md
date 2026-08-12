@@ -8,6 +8,15 @@
 
 <br />
 
+## 🤖 AI Agent 协作 (For AI Agents)
+
+本项目使用 AI Agent 在多台机器上协作开发，状态通过 GitHub 交接。
+
+- **任何 Agent 开工前，请先完整阅读根目录 [`AGENTS.md`](./AGENTS.md)** —— 这是唯一入口，包含开工/收工流程、硬性规则与目录约定。
+- **当前进展与下一步，见 [`docs/STATE.md`](./docs/STATE.md)** —— 交接的单一事实来源。
+- 快捷命令：开工 `./scripts/pickup.sh`　｜　收工 `./scripts/handoff.sh -m "本次做了什么"`
+- 其他文档：[任务板](./docs/TASKS.md)　·　[决策记录](./docs/DECISIONS.md)　·　[路线图](./docs/ROADMAP.md)　·　[开发规范](./docs/CONVENTIONS.md)　·　[会话流水](./docs/SESSION_LOG.md)
+
 ## 📖 项目简介 (Introduction)
 
 **Outer** 是一款专注于个人衣物管理与搭配推荐的应用程序。旨在通过最简单的交互（拍照+标签），解决“衣柜里衣服很多，但不知道穿什么”的日常难题。
